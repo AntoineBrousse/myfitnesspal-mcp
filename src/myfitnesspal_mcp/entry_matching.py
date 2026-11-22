@@ -9,6 +9,10 @@ def collapse_whitespace(text: str) -> str:
     return " ".join(text.split())
 
 
+def normalize_name(name: str) -> str:
+    return collapse_whitespace(name).lower()
+
+
 def normalize_meal(meal: str | None) -> str | None:
     if meal is None:
         return None
@@ -53,9 +57,11 @@ def _meal_pool(entries: list[dict], meal: str | None) -> list[dict]:
 def find_entries(
     entries: list[dict], query: str, meal: str | None = None
 ) -> list[dict]:
-    needle = query.lower()
+    needle = normalize_name(query)
     return [
-        entry for entry in _meal_pool(entries, meal) if needle in entry["name"].lower()
+        entry
+        for entry in _meal_pool(entries, meal)
+        if needle in normalize_name(entry["name"])
     ]
 
 
@@ -79,7 +85,7 @@ def resolve_entry(
     exact = [
         candidate
         for candidate in candidates
-        if candidate["name"].lower() == query.lower()
+        if normalize_name(candidate["name"]) == normalize_name(query)
     ]
     for pool in (exact, candidates):
         if pool and _interchangeable(pool):

@@ -44,6 +44,11 @@ All notable changes to this project are documented here. The format follows
   or "token" no longer sets off a session refresh and a misleading "session
   expired" error. The tool now reports the actual problem, such as no food
   found, an expired draft, or an unknown water unit.
+- `fitness_delete_food`, `fitness_modify_food`, and `fitness_delete_exercise`
+  now match diary entries whose names MyFitnessPal stores with non-breaking
+  spaces. A query like
+  "yaourt grec" used to miss them, and with a similar entry logged the same
+  day, could pick and delete the wrong one.
 
 ## [0.5.0] - 2026-11-03
 

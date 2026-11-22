@@ -447,3 +447,20 @@ def test_read_day_signed_out_page_is_an_auth_error(client, make_response):
     with pytest.raises(diary.DiarySignedOut) as raised:
         diary.read_day(client, TODAY)
     assert mfp_client.is_auth_error(raised.value)
+
+
+def test_find_entries_ignores_non_breaking_spaces():
+    entries = [
+        {"entry_id": "1", "meal": "snacks", "name": "Liberté\xa0grec - Yaourt\xa0grec"}
+    ]
+    found = entry_matching.find_entries(entries, "yaourt grec")
+    assert [e["entry_id"] for e in found] == ["1"]
+
+
+def test_resolve_entry_exact_match_ignores_non_breaking_spaces():
+    entries = [
+        {"entry_id": "1", "meal": "snacks", "name": "Yaourt\xa0grec"},
+        {"entry_id": "2", "meal": "snacks", "name": "Yaourt grec nature"},
+    ]
+    entry = entry_matching.resolve_entry(entries, "Yaourt grec", None, TODAY)
+    assert entry["entry_id"] == "1"
