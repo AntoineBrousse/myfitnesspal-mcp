@@ -41,6 +41,20 @@ def _added_entries(before_doc, after_doc) -> list[dict]:
     ]
 
 
+def read_back_added(client, day: date, before_doc, *, what: str, meal: str) -> list:
+    try:
+        after, _ = diary.diary_page(client, day)
+    except Exception as exc:
+        raise UnverifiedAdd(
+            f"MyFitnessPal accepted {what!r} for {meal} on {day.isoformat()}, "
+            f"but the diary could not be read back to check it "
+            f"({type(exc).__name__}). Look at the day with fitness_get_day "
+            "before logging it again, or it may be added twice.",
+            day,
+        ) from exc
+    return _added_entries(before_doc, after)
+
+
 def _pinned_serving(pin: dict) -> dict:
     return {
         "weight_id": pin["weight_id"],
@@ -185,17 +199,7 @@ def log_exact(
         quantity=quantity,
         page=page,
     )
-    try:
-        after, _ = diary.diary_page(client, day)
-    except Exception as exc:
-        raise UnverifiedAdd(
-            f"MyFitnessPal accepted {food['name']!r} for {meal} on "
-            f"{day.isoformat()}, but the diary could not be read back to check "
-            f"it ({type(exc).__name__}). Look at the day with fitness_get_day "
-            "before logging it again, or it may be added twice.",
-            day,
-        ) from exc
-    added = _added_entries(page[0], after)
+    added = read_back_added(client, day, page[0], what=food["name"], meal=meal)
     if not added:
         raise NothingLogged(
             f"MyFitnessPal accepted {food['name']!r} (food_id {food['food_id']}, "

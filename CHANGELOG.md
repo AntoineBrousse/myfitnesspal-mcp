@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `fitness_list_meals` lists your saved MyFitnessPal meals ("My Meals"),
+  and `fitness_log_meal` adds one to the diary by name, as the website's
+  Meals tab does. MyFitnessPal adds every food the meal contains, and the
+  result lists the entries it actually added.
 - `fitness_complete_day` reports whether a diary day is marked complete, or
   marks it complete or reopens it, as the website's "Complete This Entry"
   button does. A bare call only reports.
