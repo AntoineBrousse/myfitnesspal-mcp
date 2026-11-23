@@ -14,6 +14,7 @@ from . import (
     exercise,
     food_logging,
     food_search,
+    meals,
     measurements,
     mfp_client,
     notes,
@@ -315,6 +316,55 @@ async def fitness_log_food(
     refresh_warning = await refresh_after_write(
         ctx, datetime.date.fromisoformat(result["date"])
     )
+    return {
+        "ok": True,
+        **result,
+        **refresh_warning,
+        "day": get_store().day_record(result["date"]),
+    }
+
+
+@mcp.tool(title="List saved meals", annotations=READS_MFP)
+async def fitness_list_meals(ctx: Context = None) -> dict:
+    """List the user's saved MyFitnessPal meals ("My Meals"): each has a name,
+    food_id, and weight_id. Log one with fitness_log_meal."""
+
+    def op(store, client):
+        return {"meals": meals.saved_meals(client)}
+
+    return await with_session(ctx, op)
+
+
+@mcp.tool(title="Log saved meal", annotations=ADDS_TO_MFP)
+async def fitness_log_meal(
+    name: str, meal: str = "lunch", date: str | None = None, ctx: Context = None
+) -> dict:
+    """Add one of the user's saved MyFitnessPal meals ("My Meals") to the
+    diary. MyFitnessPal adds every food the saved meal contains.
+
+    Use this instead of fitness_log_food when the user names one of their
+    saved meals. If unsure of the name, or whether it is a saved meal, call
+    fitness_list_meals first.
+
+    name: the saved meal's name, matched ignoring case and spacing; an exact
+    name wins, otherwise it must match exactly one saved meal partially. If it
+    matches none or several, nothing is logged and the error lists the saved
+    meals. meal: breakfast|lunch|dinner|snacks (default lunch) or any meal
+    name on the account. date: YYYY-MM-DD (default today).
+
+    A logged result lists `added_entries` (meal, name): the foods
+    MyFitnessPal actually put in the diary. An error saying no entry was
+    added means nothing was logged. An error saying the diary could not be
+    read back means the meal may be logged: check with fitness_get_day before
+    logging it again.
+    """
+    day = parse_day(date)
+
+    def op(store, client):
+        return meals.log_saved_meal(client, day, name, meal)
+
+    result = await add_with_session(ctx, op)
+    refresh_warning = await refresh_after_write(ctx, day)
     return {
         "ok": True,
         **result,
