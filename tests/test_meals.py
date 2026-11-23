@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 
 import pytest
 from conftest import FIXTURES, FakeClient, FakeResponse, diary_after_add
@@ -158,3 +159,75 @@ def test_log_meal_tool_is_a_non_destructive_add():
     assert not log_meal.read_only_hint
     assert not log_meal.destructive_hint
     assert not log_meal.idempotent_hint
+
+
+@pytest.fixture
+def meals_api_client():
+    fake = FakeClient()
+    fake.session.route(
+        "GET",
+        "api/services/users/meals/mine",
+        FakeResponse(
+            json_data=json.loads(
+                (FIXTURES / "meals_mine.json").read_text(encoding="utf-8")
+            )
+        ),
+    )
+    return fake
+
+
+def test_meal_ingredients_keeps_mfp_text_and_sums_totals(meals_api_client):
+    result = meals.meal_ingredients(meals_api_client, "chili")
+    assert result["name"] == "Chili Bowl"
+    assert result["meal_id"] == "900000001"
+    assert [item["name"] for item in result["ingredients"]] == [
+        "Kidney Beans - Canned, 200 g",
+        "Ground Beef 5%, 150 g",
+        "Crushed Tomatoes, 0.5 can",
+    ]
+    assert result["ingredients"][0] == {
+        "name": "Kidney Beans - Canned, 200 g",
+        "calories": 180,
+        "protein": 12.4,
+        "carbs": 30.1,
+        "fat": 1.2,
+        "sodium": 410,
+        "sugar": 1.1,
+    }
+    assert result["totals"] == {
+        "calories": 425,
+        "protein": 45.7,
+        "carbs": 38.3,
+        "fat": 9.0,
+        "sodium": 505,
+        "sugar": 6.4,
+    }
+
+
+def test_meal_ingredients_reads_the_my_meals_api_without_writing(meals_api_client):
+    meals.meal_ingredients(meals_api_client, "Overnight Oats")
+    [(method, url, _)] = meals_api_client.session.calls
+    assert method == "GET"
+    assert "api/services/users/meals/mine?limit=100&search=" in url
+
+
+def test_meal_ingredients_of_an_empty_meal(meals_api_client):
+    result = meals.meal_ingredients(meals_api_client, "oats deluxe")
+    assert result["ingredients"] == []
+    assert result["totals"]["calories"] == 0
+
+
+def test_meal_ingredients_ambiguous_or_unknown_name(meals_api_client):
+    with pytest.raises(meals.AmbiguousSavedMeal, match="'Overnight Oats'"):
+        meals.meal_ingredients(meals_api_client, "oats")
+    with pytest.raises(meals.UnknownSavedMeal, match="'Chili Bowl'"):
+        meals.meal_ingredients(meals_api_client, "lasagna")
+
+
+def test_get_meal_tool(meals_api_client, monkeypatch):
+    monkeypatch.setattr(server.mfp_client, "get_client", lambda: meals_api_client)
+    result = asyncio.run(server.fitness_get_meal(name="overnight"))
+    assert result["name"] == "Overnight Oats"
+    assert result["totals"]["protein"] == 10.4
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+    assert tools["fitness_get_meal"].annotations.read_only_hint

@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `fitness_get_meal` reads what a saved meal contains: each ingredient as
+  MyFitnessPal shows it (quantity and serving included) with its calories
+  and macros, plus the meal's totals. It only reads, for shopping lists or
+  a meal's macros.
 - `fitness_list_meals` lists your saved MyFitnessPal meals ("My Meals"),
   and `fitness_log_meal` adds one to the diary by name, as the website's
   Meals tab does. MyFitnessPal adds every food the meal contains, and the

@@ -335,6 +335,30 @@ async def fitness_list_meals(ctx: Context = None) -> dict:
     return await with_session(ctx, op)
 
 
+@mcp.tool(title="Get saved meal", annotations=READS_MFP)
+async def fitness_get_meal(name: str, ctx: Context = None) -> dict:
+    """What one of the user's saved MyFitnessPal meals ("My Meals") contains:
+    use it for a shopping list or a saved meal's macros. Nothing is logged.
+
+    name: the saved meal's name, matched ignoring case and spacing; an exact
+    name wins, otherwise it must match exactly one saved meal partially. If it
+    matches none or several, the error lists the saved meals. If unsure of the
+    name, call fitness_list_meals first.
+
+    Returns the meal's name and meal_id (the food_id fitness_list_meals shows),
+    `ingredients` with each food's text as MyFitnessPal shows it, quantity and
+    serving included (e.g. "oeuf - Gros Oeuf, 4 oeuf"), and its calories,
+    protein, carbs, fat (g), sodium (mg), and sugar (g), and `totals`, their
+    sums rounded to 0.1. Reads up to the first 100 saved meals, which covers
+    normal use.
+    """
+
+    def op(store, client):
+        return meals.meal_ingredients(client, name)
+
+    return await with_session(ctx, op)
+
+
 @mcp.tool(title="Log saved meal", annotations=ADDS_TO_MFP)
 async def fitness_log_meal(
     name: str, meal: str = "lunch", date: str | None = None, ctx: Context = None

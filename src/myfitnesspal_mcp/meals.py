@@ -4,13 +4,19 @@ from lxml import html as lh
 
 from . import diary, food_logging
 from .entry_matching import DiaryLookupError, collapse_whitespace
-from .mfp_web import form_headers, require_status, site_url
+from .mfp_web import form_headers, get_json, require_status, site_url
 
 # The add_to_diary form has two submit buttons, name="add" and name="delete",
 # so MFP picks the action from which field is present. The value is the label
 # the English page itself submits, so it matches the page whatever MFP does
 # with it; the /fr/ page submits a French label to the same action.
 ADD_BUTTON_VALUE = "Add Checked"
+
+# The My Meals page (meal/mine) reads this JSON route with limit=100; its
+# meal_id is the food_id that load_meals lists for the same meal.
+MEALS_API_PATH = "api/services/users/meals/mine"
+MEALS_API_LIMIT = "100"
+INGREDIENT_NUTRIENTS = ("calories", "protein", "carbs", "fat", "sodium", "sugar")
 
 
 class UnknownSavedMeal(DiaryLookupError):
@@ -142,3 +148,39 @@ def log_saved_meal(client, day: date, name: str, meal: str) -> dict:
         "meal": meal_label,
         "date": day.isoformat(),
     }
+
+
+def _ingredient(food: dict) -> dict:
+    return {
+        "name": collapse_whitespace(food.get("description") or ""),
+        **{nutrient: food.get(nutrient) for nutrient in INGREDIENT_NUTRIENTS},
+    }
+
+
+def _totals(ingredients: list[dict]) -> dict[str, float]:
+    return {
+        nutrient: round(
+            sum(item[nutrient] for item in ingredients if item[nutrient] is not None),
+            1,
+        )
+        for nutrient in INGREDIENT_NUTRIENTS
+    }
+
+
+def saved_meal_contents(client) -> list[dict]:
+    url = site_url(
+        client, MEALS_API_PATH, params={"limit": MEALS_API_LIMIT, "search": ""}
+    )
+    return [
+        {
+            "name": collapse_whitespace(item.get("description") or ""),
+            "meal_id": str(item.get("meal_id")),
+            "ingredients": [_ingredient(food) for food in item.get("foods") or []],
+        }
+        for item in get_json(client, url) or []
+    ]
+
+
+def meal_ingredients(client, name: str) -> dict:
+    saved = find_saved_meal(saved_meal_contents(client), name)
+    return {**saved, "totals": _totals(saved["ingredients"])}
